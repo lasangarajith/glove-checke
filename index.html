@@ -2,84 +2,75 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Glove QC Inspector</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
-        body { background-color: #0f172a; color: #f8fafc; display: flex; flex-direction: column; min-height: 100vh; }
-        header { background-color: #1e293b; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
-        .title { font-size: 1rem; font-weight: 700; color: #38bdf8; }
-        .status-badge { font-size: 0.7rem; padding: 4px 8px; border-radius: 12px; font-weight: 600; background-color: #334155; color: #94a3b8; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; user-select: none; }
+        body { background-color: #0f172a; color: #f8fafc; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        .main-container { position: relative; width: 100%; height: 350px; background-color: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        header { background-color: #1e293b; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; height: 45px; }
+        .title { font-size: 0.95rem; font-weight: 700; color: #38bdf8; }
+        .status-badge { font-size: 0.65rem; padding: 3px 8px; border-radius: 10px; font-weight: 600; background-color: #334155; color: #94a3b8; }
+
+        .viewport { position: relative; flex: 1; background: #000; display: flex; justify-content: center; align-items: center; overflow: hidden; }
         #webcam { position: absolute; width: 100%; height: 100%; object-fit: cover; }
         #hiddenCanvas { display: none; }
-        
-        .target-box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 140px; border: 2px dashed #38bdf8; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4); z-index: 5; }
-        .target-box.pass { border-color: #22c55e; border-style: solid; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3), 0 0 15px rgba(34, 197, 94, 0.4); }
-        .target-box.fail { border-color: #ef4444; border-style: solid; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3), 0 0 15px rgba(239, 68, 68, 0.4); }
-        
-        .result-banner { text-align: center; padding: 8px; font-size: 1.1rem; font-weight: 800; background: #1e293b; color: #94a3b8; border-bottom: 1px solid #334155; }
-        .result-banner.pass { background-color: #22c55e; color: #fff; }
-        .result-banner.fail { background-color: #ef4444; color: #fff; }
 
-        .stats-panel { display: flex; gap: 8px; padding: 10px; background: #0f172a; justify-content: center; }
-        .stat-card { flex: 1; background: #1e293b; border-radius: 8px; padding: 8px; text-align: center; border: 1px solid #334155; }
-        .stat-val { font-size: 1rem; font-weight: 700; }
-        .stat-lbl { font-size: 0.6rem; color: #94a3b8; text-transform: uppercase; }
+        .target-box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 130px; border: 2px dashed #38bdf8; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45); z-index: 5; transition: 0.2s; }
+        .target-box.pass { border-color: #22c55e; border-style: solid; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35), 0 0 15px rgba(34, 197, 94, 0.5); }
+        .target-box.fail { border-color: #ef4444; border-style: solid; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35), 0 0 15px rgba(239, 68, 68, 0.5); }
 
-        .controls-panel { background-color: #1e293b; padding: 12px; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #334155; }
-        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
-        .btn { flex: 1; padding: 12px; border-radius: 8px; border: none; font-size: 0.85rem; font-weight: 600; cursor: pointer; text-align: center; }
-        .btn-start { background-color: #38bdf8; color: #0f172a; width: 100%; }
-        .btn-primary { background-color: #22c55e; color: #fff; }
-        .btn-secondary { background-color: #475569; color: #fff; }
+        .result-banner { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); padding: 5px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 800; background: rgba(15, 23, 42, 0.85); border: 1px solid #334155; color: #94a3b8; z-index: 6; }
+        .result-banner.pass { background-color: #22c55e; color: #fff; border-color: #4ade80; }
+        .result-banner.fail { background-color: #ef4444; color: #fff; border-color: #f87171; }
+
+        .footer-panel { background-color: #1e293b; padding: 10px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #334155; z-index: 10; }
         
-        .slider-container { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: #94a3b8; padding: 0 4px; }
-        .slider-container input { flex: 1; accent-color: #38bdf8; }
+        .stats-row { display: flex; gap: 6px; }
+        .stat-card { flex: 1; background: #0f172a; border-radius: 6px; padding: 5px; text-align: center; border: 1px solid #334155; }
+        .stat-val { font-size: 0.95rem; font-weight: 700; }
+        .stat-lbl { font-size: 0.55rem; color: #94a3b8; text-transform: uppercase; }
+
+        .btn-row { display: flex; gap: 6px; }
+        .btn { flex: 1; padding: 10px; border-radius: 6px; border: none; font-size: 0.8rem; font-weight: 700; cursor: pointer; text-align: center; }
+        .btn-capture { background-color: #22c55e; color: #fff; flex: 2; }
+        .btn-switch { background-color: #475569; color: #fff; }
     </style>
 </head>
 <body>
 
     <header>
-        <div class="title">🔍 Glove QC Inspector</div>
-        <div class="status-badge" id="statusBadge">OFFLINE</div>
+        <div class="title">🔍 Glove QC System</div>
+        <div class="status-badge" id="statusBadge">CONNECTING</div>
     </header>
 
-    <div class="result-banner" id="resultBanner">TAP START CAMERA FIRST</div>
-
-    <div class="main-container">
+    <div class="viewport">
         <video id="webcam" autoplay playsinline muted></video>
         <canvas id="hiddenCanvas"></canvas>
+
+        <div class="result-banner" id="resultBanner">CAPTURE MASTER FIRST</div>
         <div class="target-box" id="targetBox"></div>
     </div>
 
-    <div class="stats-panel">
-        <div class="stat-card">
-            <div class="stat-val" id="matchScore">--%</div>
-            <div class="stat-lbl">Match</div>
+    <div class="footer-panel">
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-val" id="matchScore">--%</div>
+                <div class="stat-lbl">Match</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val" style="color:#22c55e;" id="passCount">0</div>
+                <div class="stat-lbl">Pass</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val" style="color:#ef4444;" id="failCount">0</div>
+                <div class="stat-lbl">Fail</div>
+            </div>
         </div>
-        <div class="stat-card">
-            <div class="stat-val" style="color:#22c55e;" id="passCount">0</div>
-            <div class="stat-lbl">Pass</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-val" style="color:#ef4444;" id="failCount">0</div>
-            <div class="stat-lbl">Fail</div>
-        </div>
-    </div>
 
-    <div class="controls-panel">
-        <button class="btn btn-start" id="btnStart">📹 1. Start Camera</button>
-        <div class="btn-group">
-            <button class="btn btn-primary" id="btnCapture">📸 2. Capture Master</button>
-            <button class="btn btn-secondary" id="btnSwitchCam">🔄 Switch</button>
-        </div>
-        <div class="slider-container">
-            <span>Strict</span>
-            <input type="range" id="sensitivitySlider" min="50" max="95" value="70">
-            <span>Lenient</span>
-            <span id="thresholdVal" style="color:#f8fafc; font-weight:bold;">70%</span>
+        <div class="btn-row">
+            <button class="btn btn-capture" id="btnCapture">📸 CAPTURE MASTER</button>
+            <button class="btn btn-switch" id="btnSwitchCam">🔄 SWITCH CAM</button>
         </div>
     </div>
 
@@ -92,20 +83,31 @@
         const matchScoreEl = document.getElementById('matchScore');
         const passCountEl = document.getElementById('passCount');
         const failCountEl = document.getElementById('failCount');
-        const sensitivitySlider = document.getElementById('sensitivitySlider');
-        const thresholdValEl = document.getElementById('thresholdVal');
-        const btnStart = document.getElementById('btnStart');
         const btnCapture = document.getElementById('btnCapture');
         const btnSwitchCam = document.getElementById('btnSwitchCam');
 
         let currentStream = null;
         let facingMode = 'environment';
         let masterImageData = null;
-        let threshold = 70;
         let passes = 0;
         let fails = 0;
         let lastResult = null;
-        let isRunning = false;
+        const threshold = 70; // 70% similarity threshold
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playBeep(freq = 440, duration = 0.1) {
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {}
+        }
 
         async function startCamera() {
             if (currentStream) {
@@ -121,29 +123,17 @@
                 statusBadge.textContent = "LIVE";
                 statusBadge.style.backgroundColor = "#22c55e";
                 statusBadge.style.color = "#fff";
-                resultBanner.textContent = "CAPTURE MASTER PRINT";
-                
-                if (!isRunning) {
-                    isRunning = true;
-                    requestAnimationFrame(processFrame);
-                }
+                requestAnimationFrame(processFrame);
             } catch (err) {
-                alert("Camera Error: " + err.message);
                 statusBadge.textContent = "ERROR";
                 statusBadge.style.backgroundColor = "#ef4444";
+                alert("Camera Access Error: " + err.message);
             }
         }
-
-        btnStart.addEventListener('click', startCamera);
 
         btnSwitchCam.addEventListener('click', () => {
             facingMode = facingMode === 'environment' ? 'user' : 'environment';
             startCamera();
-        });
-
-        sensitivitySlider.addEventListener('input', (e) => {
-            threshold = parseInt(e.target.value);
-            thresholdValEl.textContent = threshold + '%';
         });
 
         function getTargetCropData() {
@@ -162,12 +152,13 @@
 
         btnCapture.addEventListener('click', () => {
             if (!video.videoWidth) {
-                alert("Palamu camera start karanna!");
+                alert("Camera එක තවම load වෙනවා. පොඩ්ඩක් ඉන්න.");
                 return;
             }
             masterImageData = getTargetCropData();
-            resultBanner.textContent = "MASTER CAPTURED - READY";
+            resultBanner.textContent = "MASTER CAPTURED ✅";
             resultBanner.className = "result-banner pass";
+            playBeep(880, 0.2);
         });
 
         function compareImages(curr, master) {
@@ -193,7 +184,7 @@
                 if (score >= threshold) {
                     targetBox.className = "target-box pass";
                     resultBanner.className = "result-banner pass";
-                    resultBanner.textContent = "OK / PASS (" + score + "%)";
+                    resultBanner.textContent = "PASS (" + score + "%)";
 
                     if (lastResult !== 'PASS') {
                         passes++;
@@ -202,18 +193,21 @@
                     }
                 } else {
                     targetBox.className = "target-box fail";
-                    resultBanner.className, resultBanner.className = "result-banner fail";
-                    resultBanner.textContent = "NOT OK / FAIL (" + score + "%)";
+                    resultBanner.className = "result-banner fail";
+                    resultBanner.textContent = "FAIL (" + score + "%)";
 
                     if (lastResult !== 'FAIL') {
                         fails++;
                         failCountEl.textContent = fails;
                         lastResult = 'FAIL';
+                        playBeep(220, 0.25);
                     }
                 }
             }
-            requestAnimationFrame(processFrame);
+            requestAnimationFrame(processHeader || processFrame);
         }
+
+        startCamera();
     </script>
 </body>
 </html>
