@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Glove QC Inspector</title>
+    <title>Glove QC Inspector - Pro</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; user-select: none; }
         body { background: #090d16; color: #f8fafc; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
@@ -16,31 +16,31 @@
         #webcam { position: absolute; width: 100%; height: 100%; object-fit: cover; }
         #hiddenCanvas { display: none; }
 
-        .target-box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 130px; border: 2px dashed #38bdf8; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); z-index: 5; transition: 0.2s; }
-        .target-box.pass { border-color: #22c55e; border-style: solid; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4), 0 0 15px rgba(34, 197, 94, 0.6); }
-        .target-box.fail { border-color: #ef4444; border-style: solid; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4), 0 0 15px rgba(239, 68, 68, 0.6); }
+        .target-box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 220px; height: 140px; border: 2px dashed #38bdf8; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55); z-index: 5; transition: 0.2s; }
+        .target-box.pass { border-color: #22c55e; border-style: solid; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 20px rgba(34, 197, 94, 0.7); }
+        .target-box.fail { border-color: #ef4444; border-style: solid; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 20px rgba(239, 68, 68, 0.7); }
 
-        .banner { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); padding: 5px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 800; background: rgba(15, 23, 42, 0.9); border: 1px solid #334155; color: #94a3b8; z-index: 6; }
+        .banner { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); padding: 6px 18px; border-radius: 20px; font-size: 0.9rem; font-weight: 800; background: rgba(15, 23, 42, 0.9); border: 1px solid #334155; color: #94a3b8; z-index: 6; }
         .banner.pass { background: #22c55e; color: #fff; border-color: #4ade80; }
         .banner.fail { background: #ef4444; color: #fff; border-color: #f87171; }
 
         .controls { background: #1e293b; padding: 10px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #334155; z-index: 10; }
         .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
         .stat-box { background: #090d16; border-radius: 6px; padding: 6px 2px; text-align: center; border: 1px solid #334155; }
-        .stat-val { font-size: 0.9rem; font-weight: 700; }
+        .stat-val { font-size: 0.95rem; font-weight: 700; }
         .stat-lbl { font-size: 0.5rem; color: #94a3b8; text-transform: uppercase; margin-top: 2px; }
 
         .btn-row { display: flex; gap: 6px; }
         .btn { flex: 1; padding: 10px; border-radius: 6px; border: none; font-size: 0.8rem; font-weight: 700; cursor: pointer; text-align: center; }
         .btn-start { background: #38bdf8; color: #090d16; }
-        .btn-capture { background: #22c55e; color: #fff; display: none; }
+        .btn-capture { background: #22c55e; color: #fff; display: none; flex: 2; }
         .btn-reset { background: #475569; color: #fff; max-width: 80px; }
     </style>
 </head>
 <body>
 
     <header>
-        <div class="title">🔍 Glove QC Inspector</div>
+        <div class="title">🔍 Glove QC System</div>
         <div class="badge" id="badge">OFFLINE</div>
     </header>
 
@@ -92,7 +92,7 @@
         const btnCapture = document.getElementById('btnCapture');
         const btnReset = document.getElementById('btnReset');
 
-        let masterData = null;
+        let masterSignature = null;
         let total = 0, passes = 0, fails = 0;
         let lastState = null;
 
@@ -101,7 +101,7 @@
             badge.style.background = "#eab308";
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
                     audio: false
                 });
                 video.srcObject = stream;
@@ -123,7 +123,7 @@
             }
         });
 
-        function getCrop() {
+        function getCropSignature() {
             if (!video.videoWidth) return null;
             const ctx = canvas.getContext('2d');
             canvas.width = video.videoWidth;
@@ -134,16 +134,31 @@
             const h = Math.floor(canvas.height * 0.3);
             const x = Math.floor((canvas.width - w) / 2);
             const y = Math.floor((canvas.height - h) / 2);
-            return ctx.getImageData(x, y, w, h);
+            
+            const imgData = ctx.getImageData(x, y, w, h);
+            const data = imgData.data;
+            
+            let rSum = 0, gSum = 0, bSum = 0, count = 0;
+            for (let i = 0; i < data.length; i += 16) {
+                rSum += data[i];
+                gSum += data[i+1];
+                bSum += data[i+2];
+                count++;
+            }
+            return {
+                r: rSum / count,
+                g: gSum / count,
+                b: bSum / count
+            };
         }
 
         btnCapture.addEventListener('click', () => {
-            const data = getCrop();
-            if (!data) {
+            const sig = getCropSignature();
+            if (!sig) {
                 alert("Camera එක තවම සූදානම් නැත!");
                 return;
             }
-            masterData = data;
+            masterSignature = sig;
             banner.textContent = "MASTER CAPTURED ✅";
             banner.className = "banner pass";
         });
@@ -154,30 +169,24 @@
             passEl.textContent = "0";
             failEl.textContent = "0";
             matchEl.textContent = "--%";
-            banner.textContent = masterData ? "READY" : "CAPTURE MASTER PRINT";
+            banner.textContent = masterSignature ? "READY" : "CAPTURE MASTER PRINT";
             banner.className = "banner";
         });
 
         function loop() {
-            if (video.readyState === video.HAVE_ENOUGH_DATA && masterData) {
-                const current = getCrop();
-                if (current) {
-                    let diff = 0;
-                    const d1 = current.data;
-                    const d2 = masterData.data;
-                    const len = d1.length;
-                    let count = 0;
-
-                    for (let i = 0; i < len; i += 16) {
-                        diff += (Math.abs(d1[i] - d2[i]) + Math.abs(d1[i+1] - d2[i+1]) + Math.abs(d1[i+2] - d2[i+2])) / 3;
-                        count++;
-                    }
-
-                    const avg = diff / count;
-                    const score = Math.max(0, Math.round(100 - (avg / 255 * 100)));
+            if (video.readyState === video.HAVE_ENOUGH_DATA && masterSignature) {
+                const currentSig = getCropSignature();
+                if (currentSig) {
+                    const diffR = Math.abs(currentSig.r - masterSignature.r);
+                    const diffG = Math.abs(currentSig.g - masterSignature.g);
+                    const diffB = Math.abs(currentSig.b - masterSignature.b);
+                    
+                    const avgDiff = (diffR + diffG + diffB) / 3;
+                    const score = Math.max(0, Math.round(100 - (avgDiff / 255 * 100 * 1.8)));
                     matchEl.textContent = score + "%";
 
-                    if (score >= 68) {
+                    // Threshold: 70% match score
+                    if (score >= 70) {
                         targetBox.className = "target-box pass";
                         banner.className = "banner pass";
                         banner.textContent = "PASS / OK (" + score + "%)";
