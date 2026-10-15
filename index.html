@@ -3,78 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Glove Print QC Inspector</title>
+    <title>Glove QC Inspector</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        body { background: #0f172a; color: #fff; text-align: center; padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
-        .card { background: #1e293b; border-radius: 12px; padding: 16px; width: 100%; max-width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; }
-        h2 { font-size: 1.1rem; color: #38bdf8; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 6px; }
-        .status { font-size: 0.8rem; padding: 4px 10px; border-radius: 20px; background: #334155; color: #cbd5e1; margin-bottom: 12px; font-weight: 600; display: inline-block; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; user-select: none; }
+        body { background: #090d16; color: #f8fafc; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        .video-container { position: relative; width: 100%; height: 240px; background: #000; border-radius: 10px; overflow: hidden; border: 2px solid #334155; margin-bottom: 12px; }
-        video { width: 100%; height: 100%; object-fit: cover; }
+        header { background: #1e293b; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
+        .title { font-size: 0.95rem; font-weight: 700; color: #38bdf8; }
+        .badge { font-size: 0.65rem; padding: 3px 8px; border-radius: 10px; background: #334155; color: #94a3b8; font-weight: 600; }
         
-        .box-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 180px; height: 120px; border: 2px dashed #38bdf8; border-radius: 8px; pointer-events: none; transition: 0.2s; }
-        .box-overlay.pass { border-color: #22c55e; border-style: solid; box-shadow: 0 0 15px rgba(34,197,94,0.5); }
-        .box-overlay.fail { border-color: #ef4444; border-style: solid; box-shadow: 0 0 15px rgba(239,68,68,0.5); }
-        
-        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
-        .stat-card { background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 6px 2px; }
-        .stat-val { font-size: 0.95rem; font-weight: 700; }
-        .stat-lbl { font-size: 0.55rem; color: #94a3b8; text-transform: uppercase; margin-top: 2px; }
-        
-        .btn { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: 700; font-size: 0.9rem; cursor: pointer; margin-bottom: 8px; transition: 0.1s; }
-        .btn-start { background: #38bdf8; color: #0f172a; }
-        .btn-capture { background: #22c55e; color: #fff; }
-        .btn-reset { background: #475569; color: #fff; padding: 8px; font-size: 0.75rem; }
+        .viewport { position: relative; flex: 1; background: #000; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        #webcam { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+        #hiddenCanvas { display: none; }
+
+        .target-box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 130px; border: 2px dashed #38bdf8; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); z-index: 5; transition: 0.2s; }
+        .target-box.pass { border-color: #22c55e; border-style: solid; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4), 0 0 15px rgba(34, 197, 94, 0.6); }
+        .target-box.fail { border-color: #ef4444; border-style: solid; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4), 0 0 15px rgba(239, 68, 68, 0.6); }
+
+        .banner { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); padding: 5px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 800; background: rgba(15, 23, 42, 0.9); border: 1px solid #334155; color: #94a3b8; z-index: 6; }
+        .banner.pass { background: #22c55e; color: #fff; border-color: #4ade80; }
+        .banner.fail { background: #ef4444; color: #fff; border-color: #f87171; }
+
+        .controls { background: #1e293b; padding: 10px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #334155; z-index: 10; }
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .stat-box { background: #090d16; border-radius: 6px; padding: 6px 2px; text-align: center; border: 1px solid #334155; }
+        .stat-val { font-size: 0.9rem; font-weight: 700; }
+        .stat-lbl { font-size: 0.5rem; color: #94a3b8; text-transform: uppercase; margin-top: 2px; }
+
+        .btn-row { display: flex; gap: 6px; }
+        .btn { flex: 1; padding: 10px; border-radius: 6px; border: none; font-size: 0.8rem; font-weight: 700; cursor: pointer; text-align: center; }
+        .btn-start { background: #38bdf8; color: #090d16; }
+        .btn-capture { background: #22c55e; color: #fff; display: none; }
+        .btn-reset { background: #475569; color: #fff; max-width: 80px; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h2>🔍 Glove QC Inspector</h2>
-        <div class="status" id="statusBadge">READY TO START</div>
+    <header>
+        <div class="title">🔍 Glove QC Inspector</div>
+        <div class="badge" id="badge">OFFLINE</div>
+    </header>
 
-        <div class="video-container">
-            <video id="webcam" autoplay playsinline muted></video>
-            <div class="box-overlay" id="boxOverlay"></div>
-        </div>
+    <div class="viewport">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="hiddenCanvas"></canvas>
+        <div class="banner" id="banner">PRESS START CAMERA</div>
+        <div class="target-box" id="targetBox"></div>
+    </div>
 
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-val" id="matchVal" style="color:#38bdf8;">--%</div>
+    <div class="controls">
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-val" id="matchEl" style="color:#38bdf8;">--%</div>
                 <div class="stat-lbl">Match</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-val" id="totalVal">0</div>
+            <div class="stat-box">
+                <div class="stat-val" id="totalEl">0</div>
                 <div class="stat-lbl">Total</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-val" id="passVal" style="color:#22c55e;">0</div>
+            <div class="stat-box">
+                <div class="stat-val" id="passEl" style="color:#22c55e;">0</div>
                 <div class="stat-lbl">Pass</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-val" id="failVal" style="color:#ef4444;">0</div>
+            <div class="stat-box">
+                <div class="stat-val" id="failEl" style="color:#ef4444;">0</div>
                 <div class="stat-lbl">Reject</div>
             </div>
         </div>
 
-        <button class="btn btn-start" id="btnStart">📹 1. Start Camera</button>
-        <button class="btn btn-capture" id="btnCapture" style="display:none;">📸 2. Capture Master Print</button>
-        <button class="btn btn-reset" id="btnReset">🔄 Reset Counters</button>
+        <div class="btn-row">
+            <button class="btn btn-start" id="btnStart">📹 Start Camera</button>
+            <button class="btn btn-capture" id="btnCapture">📸 Capture Master</button>
+            <button class="btn btn-reset" id="btnReset">🔄 Reset</button>
+        </div>
     </div>
-
-    <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
         const video = document.getElementById('webcam');
-        const canvas = document.getElementById('canvas');
-        const statusBadge = document.getElementById('statusBadge');
-        const boxOverlay = document.getElementById('boxOverlay');
-        const matchVal = document.getElementById('matchVal');
-        const totalVal = document.getElementById('totalVal');
-        const passVal = document.getElementById('passVal');
-        const failVal = document.getElementById('failVal');
+        const canvas = document.getElementById('hiddenCanvas');
+        const badge = document.getElementById('badge');
+        const banner = document.getElementById('banner');
+        const targetBox = document.getElementById('targetBox');
+        const matchEl = document.getElementById('matchEl');
+        const totalEl = document.getElementById('totalEl');
+        const passEl = document.getElementById('passEl');
+        const failEl = document.getElementById('failEl');
         const btnStart = document.getElementById('btnStart');
         const btnCapture = document.getElementById('btnCapture');
         const btnReset = document.getElementById('btnReset');
@@ -84,6 +97,8 @@
         let lastState = null;
 
         btnStart.addEventListener('click', async () => {
+            badge.textContent = "STARTING...";
+            badge.style.background = "#eab308";
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
@@ -91,73 +106,105 @@
                 });
                 video.srcObject = stream;
                 await video.play();
-                statusBadge.textContent = "CAMERA LIVE - CAPTURE MASTER";
-                statusBadge.style.background = "#22c55e";
-                statusBadge.style.color = "#fff";
+                
+                badge.textContent = "LIVE";
+                badge.style.background = "#22c55e";
+                badge.style.color = "#fff";
+                
                 btnStart.style.display = "none";
                 btnCapture.style.display = "block";
-                requestAnimationFrame(processLoop);
-            } catch (e) {
-                alert("Camera Access Error: " + e.message);
-                statusBadge.textContent = "CAMERA ERROR";
-                statusBadge.style.background = "#ef4444";
+                banner.textContent = "CAPTURE MASTER PRINT";
+                
+                requestAnimationFrame(loop);
+            } catch (err) {
+                badge.textContent = "ERROR";
+                badge.style.background = "#ef4444";
+                alert("Camera Error: " + err.message);
             }
         });
 
         function getCrop() {
+            if (!video.videoWidth) return null;
             const ctx = canvas.getContext('2d');
-            canvas.width = video.videoWidth || 320;
-            canvas.height = video.videoHeight || 240;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
             const w = Math.floor(canvas.width * 0.4);
             const h = Math.floor(canvas.height * 0.3);
-            return ctx.getImageData((canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+            const x = Math.floor((canvas.width - w) / 2);
+            const y = Math.floor((canvas.height - h) / 2);
+            return ctx.getImageData(x, y, w, h);
         }
 
         btnCapture.addEventListener('click', () => {
-            masterData = getCrop();
-            statusBadge.textContent = "MASTER CAPTURED - TESTING";
-            statusBadge.style.background = "#38bdf8";
-            statusBadge.style.color = "#0f172a";
+            const data = getCrop();
+            if (!data) {
+                alert("Camera එක තවම සූදානම් නැත!");
+                return;
+            }
+            masterData = data;
+            banner.textContent = "MASTER CAPTURED ✅";
+            banner.className = "banner pass";
         });
 
         btnReset.addEventListener('click', () => {
             total = 0; passes = 0; fails = 0; lastState = null;
-            totalVal.textContent = "0"; passVal.textContent = "0"; failVal.textContent = "0"; matchVal.textContent = "--%";
+            totalEl.textContent = "0";
+            passEl.textContent = "0";
+            failEl.textContent = "0";
+            matchEl.textContent = "--%";
+            banner.textContent = masterData ? "READY" : "CAPTURE MASTER PRINT";
+            banner.className = "banner";
         });
 
-        function processLoop() {
+        function loop() {
             if (video.readyState === video.HAVE_ENOUGH_DATA && masterData) {
                 const current = getCrop();
-                let diff = 0;
-                let count = current.data.length / 16;
-                
-                for (let i = 0; i < current.data.length; i += 16) {
-                    diff += (Math.abs(current.data[i] - masterData.data[i]) + 
-                             Math.abs(current.data[i+1] - masterData.data[i+1]) + 
-                             Math.abs(current.data[i+2] - masterData.data[i+2])) / 3;
-                }
-                
-                const score = Math.max(0, Math.round(100 - ((diff / count) / 255 * 100)));
-                matchVal.textContent = score + "%";
+                if (current) {
+                    let diff = 0;
+                    const d1 = current.data;
+                    const d2 = masterData.data;
+                    const len = d1.length;
+                    let count = 0;
 
-                if (score >= 68) {
-                    boxOverlay.className = "box-overlay pass";
-                    if (lastState !== 'PASS') {
-                        passes++; total = passes + fails;
-                        passVal.textContent = passes; totalVal.textContent = total;
-                        lastState = 'PASS';
+                    for (let i = 0; i < len; i += 16) {
+                        diff += (Math.abs(d1[i] - d2[i]) + Math.abs(d1[i+1] - d2[i+1]) + Math.abs(d1[i+2] - d2[i+2])) / 3;
+                        count++;
                     }
-                } else {
-                    boxOverlay.className = "box-overlay fail";
-                    if (lastState !== 'FAIL') {
-                        fails++; total = passes + fails;
-                        failVal.textContent = fails; totalVal.textContent = total;
-                        lastState = 'FAIL';
+
+                    const avg = diff / count;
+                    const score = Math.max(0, Math.round(100 - (avg / 255 * 100)));
+                    matchEl.textContent = score + "%";
+
+                    if (score >= 68) {
+                        targetBox.className = "target-box pass";
+                        banner.className = "banner pass";
+                        banner.textContent = "PASS / OK (" + score + "%)";
+
+                        if (lastState !== 'PASS') {
+                            passes++;
+                            total = passes + fails;
+                            passEl.textContent = passes;
+                            totalEl.textContent = total;
+                            lastState = 'PASS';
+                        }
+                    } else {
+                        targetBox.className = "target-box fail";
+                        banner.className = "banner fail";
+                        banner.textContent = "FAIL / REJECT (" + score + "%)";
+
+                        if (lastState !== 'FAIL') {
+                            fails++;
+                            total = passes + fails;
+                            failEl.textContent = fails;
+                            totalEl.textContent = total;
+                            lastState = 'FAIL';
+                        }
                     }
                 }
             }
-            requestAnimationFrame(processLoop);
+            requestAnimationFrame(loop);
         }
     </script>
 </body>
