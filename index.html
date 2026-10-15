@@ -2,65 +2,242 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Glove QC Inspector</title>
     <style>
-        body { background: #0f172a; color: #fff; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
-        video { width: 100%; max-width: 400px; height: 300px; object-fit: cover; border-radius: 12px; border: 2px solid #38bdf8; margin-top: 10px; background: #000; }
-        .btn { background: #22c55e; color: #fff; border: none; padding: 12px 20px; font-size: 1rem; border-radius: 8px; margin-top: 15px; cursor: pointer; font-weight: bold; }
-        .box { margin-top: 15px; font-size: 1.1rem; font-weight: bold; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; user-select: none; }
+        body { background-color: #0f172a; color: #f8fafc; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        header { background-color: #1e293b; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; z-index: 10; }
+        .title { font-size: 1rem; font-weight: 700; color: #38bdf8; }
+        .status-badge { font-size: 0.7rem; padding: 4px 8px; border-radius: 12px; font-weight: 600; background-color: #334155; color: #94a3b8; }
+        .main-container { flex: 1; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; background-color: #000; overflow: hidden; }
+        #webcam { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+        #hiddenCanvas { display: none; }
+        .target-box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 220px; height: 160px; border: 2px dashed #38bdf8; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4); z-index: 5; transition: 0.2s; }
+        .target-box.pass { border-color: #22c55e; border-style: solid; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3), 0 0 20px rgba(34, 197, 94, 0.4); }
+        .target-box.fail { border-color: #ef4444; border-style: solid; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3), 0 0 20px rgba(239, 68, 68, 0.5); }
+        .result-banner { position: absolute; top: 12%; left: 50%; transform: translateX(-50%); padding: 6px 20px; border-radius: 20px; font-size: 1.2rem; font-weight: 800; background: rgba(15, 23, 42, 0.85); border: 1px solid #334155; color: #94a3b8; z-index: 6; }
+        .result-banner.pass { background-color: rgba(34, 197, 94, 0.9); color: #fff; border-color: #4ade80; }
+        .result-banner.fail { background-color: rgba(239, 68, 68, 0.9); color: #fff; border-color: #f87171; }
+        .stats-panel { position: absolute; bottom: 110px; display: flex; gap: 8px; width: 90%; max-width: 380px; z-index: 6; }
+        .stat-card { flex: 1; background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 6px; text-align: center; }
+        .stat-val { font-size: 1.1rem; font-weight: 700; }
+        .stat-lbl { font-size: 0.6rem; color: #94a3b8; text-transform: uppercase; }
+        .controls-panel { background-color: #1e293b; padding: 12px; border-top: 1px solid #334155; display: flex; flex-direction: column; gap: 10px; z-index: 10; }
+        .btn-group { display: flex; gap: 8px; }
+        .btn { flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+        .btn-primary { background-color: #22c55e; color: #fff; }
+        .btn-secondary { background-color: #334155; color: #f8fafc; }
+        .slider-container { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: #94a3b8; }
+        .slider-container input { flex: 1; accent-color: #38bdf8; }
+        .reference-preview { position: absolute; top: 12px; right: 12px; width: 50px; height: 40px; border-radius: 6px; border: 1px solid #38bdf8; overflow: hidden; background: #000; z-index: 6; display: none; }
+        .reference-preview canvas { width: 100%; height: 100%; object-fit: cover; }
     </style>
 </head>
 <body>
-    <h2>🔍 Glove QC Inspector</h2>
-    <p>Camera එක පේනකම් ඉන්න...</p>
-    
-    <video id="webcam" autoplay playsinline muted></video>
-    
-    <div class="box" id="statusText" style="color: #38bdf8;">Camera Loading...</div>
-    
-    <br>
-    <button class="btn" id="btnCapture">📸 Capture Master Reference</button>
+
+    <header>
+        <div class="title">🔍 Glove QC Inspector</div>
+        <div class="status-badge" id="statusBadge">STANDBY</div>
+    </header>
+
+    <div class="main-container">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="hiddenCanvas"></canvas>
+
+        <div class="result-banner" id="resultBanner">NO MASTER</div>
+        <div class="target-box" id="targetBox"></div>
+
+        <div class="reference-preview" id="refPreview">
+            <canvas id="refCanvas" width="100" height="80"></canvas>
+        </div>
+
+        <div class="stats-panel">
+            <div class="stat-card">
+                <div class="stat-val" id="matchScore">--%</div>
+                <div class="stat-lbl">Match</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val" style="color:#22c55e;" id="passCount">0</div>
+                <div class="stat-lbl">Pass</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val" style="color:#ef4444;" id="failCount">0</div>
+                <div class="stat-lbl">Fail</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls-panel">
+        <div class="btn-group">
+            <button class="btn btn-primary" id="btnCapture">📸 Capture Master</button>
+            <button class="btn btn-secondary" id="btnSwitchCam">🔄 Switch Cam</button>
+        </div>
+        <div class="slider-container">
+            <span>Strict</span>
+            <input type="range" id="sensitivitySlider" min="50" max="95" value="70">
+            <span>Lenient</span>
+            <span id="thresholdVal" style="color:#f8fafc; font-weight:bold;">70%</span>
+        </div>
+    </div>
 
     <script>
         const video = document.getElementById('webcam');
-        const statusText = document.getElementById('statusText');
+        const hiddenCanvas = document.getElementById('hiddenCanvas');
+        const refCanvas = document.getElementById('refCanvas');
+        const targetBox = document.getElementById('targetBox');
+        const resultBanner = document.getElementById('resultBanner');
+        const statusBadge = document.getElementById('statusBadge');
+        const matchScoreEl = document.getElementById('matchScore');
+        const passCountEl = document.getElementById('passCount');
+        const failCountEl = document.getElementById('failCount');
+        const sensitivitySlider = document.getElementById('sensitivitySlider');
+        const thresholdValEl = document.getElementById('thresholdVal');
         const btnCapture = document.getElementById('btnCapture');
-        let masterImage = null;
+        const btnSwitchCam = document.getElementById('btnSwitchCam');
+        const refPreview = document.getElementById('refPreview');
 
-        async function initCamera() {
+        let currentStream = null;
+        let facingMode = 'environment';
+        let masterImageData = null;
+        let threshold = 70;
+        let passes = 0;
+        let fails = 0;
+        let lastResult = null;
+        let lastBeepTime = 0;
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playBeep(freq = 440, duration = 0.1) {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment' }, 
-                    audio: false 
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {}
+        }
+
+        async function startCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: false
                 });
-                video.srcObject = stream;
+                video.srcObject = currentStream;
                 await video.play();
-                statusText.textContent = "✅ Camera Ready! Capture Master Print.";
-                statusText.style.color = "#22c55e";
+                statusBadge.textContent = "LIVE";
+                statusBadge.style.backgroundColor = "#22c55e";
+                statusBadge.style.color = "#fff";
             } catch (err) {
-                statusText.textContent = "Camera Error: " + err.message;
-                statusText.style.color = "#ef4444";
+                statusBadge.textContent = "ERROR";
+                statusBadge.style.backgroundColor = "#ef4444";
             }
         }
 
-        btnCapture.addEventListener('click', () => {
-            if (!video.videoWidth) {
-                alert("Camera එක තවම load වෙනවා. පොඩ්ඩක් ඉන්න.");
-                return;
-            }
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            masterImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            
-            statusText.textContent = "🎯 Master Captured Successfully!";
-            statusText.style.color = "#38bdf8";
+        btnSwitchCam.addEventListener('click', () => {
+            facingMode = facingMode === 'environment' ? 'user' : 'environment';
+            startCamera();
         });
 
-        initCamera();
+        sensitivitySlider.addEventListener('input', (e) => {
+            threshold = parseInt(e.target.value);
+            thresholdValEl.textContent = threshold + '%';
+        });
+
+        function getTargetCropData() {
+            const ctx = hiddenCanvas.getContext('2d');
+            hiddenCanvas.width = video.videoWidth || 640;
+            hiddenCanvas.height = video.videoHeight || 480;
+            ctx.drawImage(video, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
+
+            const cropW = Math.floor(hiddenCanvas.width * 0.4);
+            const cropH = Math.floor(hiddenCanvas.height * 0.3);
+            const cropX = Math.floor((hiddenCanvas.width - cropW) / 2);
+            const cropY = Math.floor((hiddenCanvas.height - cropH) / 2);
+
+            return ctx.getImageData(cropX, cropY, cropW, cropH);
+        }
+
+        btnCapture.addEventListener('click', () => {
+            if (!video.videoWidth) return;
+            masterImageData = getTargetCropData();
+
+            const refCtx = refCanvas.getContext('2d');
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = masterImageData.width;
+            tempCanvas.height = masterImageData.height;
+            tempCanvas.getContext('2d').putImageData(masterImageData, 0, 0);
+            refCtx.drawImage(tempCanvas, 0, 0, refCanvas.width, refCanvas.height);
+            refPreview.style.display = 'block';
+
+            playBeep(880, 0.15);
+            resultBanner.textContent = "READY";
+            resultBanner.className = "result-banner";
+        });
+
+        function compareImages(curr, master) {
+            const d1 = curr.data;
+            const d2 = master.data;
+            let diff = 0;
+            let total = d1.length / 16; // Sample every 4th pixel for speed
+
+            for (let i = 0; i < d1.length; i += 16) {
+                diff += (Math.abs(d1[i] - d2[i]) + Math.abs(d1[i+1] - d2[i+1]) + Math.abs(d1[i+2] - d2[i+2])) / 3;
+            }
+            const avgDiff = diff / total;
+            return Math.max(0, Math.round(100 - (avgDiff / 255 * 100)));
+        }
+
+        function processFrame() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA && masterImageData) {
+                const currentData = getTargetCropData();
+                const score = compareImages(currentData, masterImageData);
+
+                matchScoreEl.textContent = score + "%";
+
+                if (score >= threshold) {
+                    targetBox.className = "target-box pass";
+                    resultBanner.className = "result-banner pass";
+                    resultBanner.textContent = "OK / PASS";
+
+                    if (lastResult !== 'PASS') {
+                        passes++;
+                        passCountEl.textContent = passes;
+                        lastResult = 'PASS';
+                    }
+                } else {
+                    targetBox.className = "target-box fail";
+                    resultBanner.className = "result-banner fail";
+                    resultBanner.textContent = "NOT OK / FAIL";
+
+                    if (lastResult !== 'FAIL') {
+                        fails++;
+                        failCountEl.textContent = fails;
+                        lastResult = 'FAIL';
+                        
+                        const now = Date.now();
+                        if (now - lastBeepTime > 1200) {
+                            playBeep(220, 0.3);
+                            lastBeepTime = now;
+                        }
+                    }
+                }
+            }
+            requestAnimationFrame(processFrame);
+        }
+
+        startCamera();
+        video.addEventListener('play', () => {
+            requestAnimationFrame(processFrame);
+        });
     </script>
 </body>
 </html>
